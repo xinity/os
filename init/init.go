@@ -330,7 +330,7 @@ func RunInit() error {
 		func(cfg *config.Config) error {
 			return createMounts(postMounts...)
 		},
-		remountRo,
+		//remountRo,
 		sysInit,
 	}
 

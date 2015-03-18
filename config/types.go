@@ -6,7 +6,7 @@ const (
 	DOCKER_BIN         = "/usr/bin/docker"
 	DOCKER_SYSTEM_HOME = "/var/lib/system-docker"
 	DOCKER_SYSTEM_HOST = "unix:///var/run/system-docker.sock"
-	DOCKER_HOST        = "unix:///var/run/docker.sock"
+	DOCKER_HOST        = "unix:///var/run/docker.real.sock"
 	IMAGES_PATH        = "/"
 	IMAGES_PATTERN     = "images*.tar"
 	SYS_INIT           = "/sbin/init-sys"

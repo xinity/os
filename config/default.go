@@ -77,7 +77,7 @@ func NewConfig() *Config {
 					"--read-only " +
 					"-v=/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt " +
 					"-v=/var/lib/rancher/conf:/var/lib/rancher/conf " +
-					"-v=/lib/modules:/lib/modules:ro " +
+					"-v=/lib/modules:/lib/modules " +
 					"-v=/var/run:/var/run " +
 					"-v=/var/log:/var/log " +
 					"state",
@@ -96,7 +96,7 @@ func NewConfig() *Config {
 					"-v=/init:/usr/bin/rancherctl:ro " +
 					"-v=/init:/usr/bin/respawn:ro " +
 					"-v=/init:/usr/bin/system-docker:ro " +
-					"-v=/lib/modules:/lib/modules:ro " +
+					"-v=/lib/modules:/lib/modules " +
 					"-v=/usr/bin/docker:/usr/bin/docker:ro " +
 					"state",
 			},
