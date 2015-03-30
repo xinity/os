@@ -15,23 +15,24 @@ it would really be bad if somebody did `docker rm -f $(docker ps -qa)` and delet
 
 ## Latest Release
 
-**v0.1.2 - Docker 1.5.0 - Linux 3.18.6**
+**v0.2.1 - Docker 1.5.0 - Linux 3.19.2**
 
 ### ISO
- https://github.com/rancherio/os/releases/download/v0.1.2/rancheros.iso
+
+https://github.com/rancherio/os/releases/download/v0.2.1/rancheros.iso
 
 ### Amazon
 
 Region | Type | AMI |
 -------|------|------
-ap-northeast-1| PV | [ami-95db3395](https://console.aws.amazon.com/ec2/home?region=ap-northeast-1#launchAmi=ami-95db3395)
-ap-southeast-1| PV | [ami-64073136](https://console.aws.amazon.com/ec2/home?region=ap-southeast-1#launchAmi=ami-64073136)
-ap-southeast-2| PV | [ami-c588f9ff](https://console.aws.amazon.com/ec2/home?region=ap-southeast-2#launchAmi=ami-c588f9ff)
-eu-west-1| PV | [ami-57cd5f20](https://console.aws.amazon.com/ec2/home?region=eu-west-1#launchAmi=ami-57cd5f20)
-sa-east-1| PV | [ami-a311a8be](https://console.aws.amazon.com/ec2/home?region=sa-east-1#launchAmi=ami-a311a8be)
-us-east-1| PV | [ami-90f6d3f8](https://console.aws.amazon.com/ec2/home?region=us-east-1#launchAmi=ami-90f6d3f8)
-us-west-1| PV | [ami-5992751d](https://console.aws.amazon.com/ec2/home?region=us-west-1#launchAmi=ami-5992751d)
-us-west-2| PV | [ami-2b67451b](https://console.aws.amazon.com/ec2/home?region=us-west-2#launchAmi=ami-2b67451b)
+ap-northeast-1| PV | [ami-71cb3d71](https://console.aws.amazon.com/ec2/home?region=ap-northeast-1#launchAmi=ami-71cb3d71)
+ap-southeast-1| PV | [ami-4a9eaf18](https://console.aws.amazon.com/ec2/home?region=ap-southeast-1#launchAmi=ami-4a9eaf18)
+ap-southeast-2| PV | [ami-45ef9f7f](https://console.aws.amazon.com/ec2/home?region=ap-southeast-2#launchAmi=ami-45ef9f7f)
+eu-west-1| PV | [ami-fd70ee8a](https://console.aws.amazon.com/ec2/home?region=eu-west-1#launchAmi=ami-fd70ee8a)
+sa-east-1| PV | [ami-85f94298](https://console.aws.amazon.com/ec2/home?region=sa-east-1#launchAmi=ami-85f94298)
+us-east-1| PV | [ami-5a321d32](https://console.aws.amazon.com/ec2/home?region=us-east-1#launchAmi=ami-5a321d32)
+us-west-1| PV | [ami-bfa849fb](https://console.aws.amazon.com/ec2/home?region=us-west-1#launchAmi=ami-bfa849fb)
+us-west-2| PV | [ami-a9bc9099](https://console.aws.amazon.com/ec2/home?region=us-west-2#launchAmi=ami-a9bc9099)
 
 SSH keys are added to the **`rancher`** user.
 
@@ -94,7 +95,7 @@ Options:
   -h print this
  ```
  
- This command orchestrates installation from the rancher/os-installer container. 
+ This command orchestrates installation from the rancher/os container. 
  
 ####Examples:
  Virtualbox installation:
@@ -108,7 +109,7 @@ to the [full documentation](docs/config.md).
 
 ## Cloud Init
 
-We currently support a very small portion of cloud-init.  If the user_data is a script (starting with the proper #!<interpreter>) we will execute it.  If the user_data starts with `#cloud-config` it will be processed by cloud-init.  The below directives are supported.
+We currently support a very small portion of cloud-init.  If the user_data is a script (starting with the proper #!<interpreter>) we will execute it.  If the user_data starts with `#cloud-config` it will be processed by cloud-init.  The below directives are supported.  Using the `rancher` key you can also configure anything found in [`rancher.yml`](docs/config.md).
 
 ```yaml
 #cloud-config
@@ -124,6 +125,14 @@ write_files:
     content: |
       #!/bin/bash
       echo "I'm doing things on start"
+
+# Anything you can put in the rancher.yml
+rancher:
+  network:
+    dns:
+      nameservers
+      - 8.8.8.8
+      - 8.8.4.4
 
 ```
 
