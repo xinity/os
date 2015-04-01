@@ -272,6 +272,10 @@ func mountState(cfg *config.Config) error {
 	return err
 }
 
+func createGroups(cfg *config.Config) error {
+	return ioutil.WriteFile("/etc/group", []byte("root:x:0:\n"), 0644)
+}
+
 func RunInit() error {
 	var cfg config.Config
 
@@ -308,6 +312,7 @@ func RunInit() error {
 		func(cfg *config.Config) error {
 			return createSymlinks(cfg, symlinks)
 		},
+		createGroups,
 		extractModules,
 		loadModules,
 		setResolvConf,
@@ -328,6 +333,10 @@ func RunInit() error {
 	}
 
 	if err := config.RunInitFuncs(&cfg, initFuncs); err != nil {
+		return err
+	}
+
+	if err := exec.Command(DOCKER, "-h").Run(); err != nil {
 		return err
 	}
 

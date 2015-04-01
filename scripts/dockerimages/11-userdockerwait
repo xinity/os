@@ -1,0 +1,3 @@
+FROM base
+COPY scripts/dockerimages/scripts/dockerwait.sh /
+CMD ["/dockerwait.sh"]

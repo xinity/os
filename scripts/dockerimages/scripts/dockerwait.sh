@@ -1,3 +1,3 @@
 #!/bin/bash
 
-exec ntpd
+sleep 1

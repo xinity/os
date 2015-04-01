@@ -22,6 +22,7 @@ func NewConfig() *Config {
 				"none",
 				"--restart=false",
 				"-g", "/var/lib/system-docker",
+				"-G", "root",
 				"-H", DOCKER_SYSTEM_HOST,
 			},
 		},
@@ -103,7 +104,6 @@ func NewConfig() *Config {
 					CREATE_ONLY + "=true",
 				},
 				Volumes: []string{
-					"/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt",
 					"/var/lib/rancher/conf:/var/lib/rancher/conf",
 					"/lib/modules:/lib/modules:ro",
 					"/lib/firmware:/lib/firmware:ro",
@@ -255,9 +255,24 @@ func NewConfig() *Config {
 				Links: []string{
 					"network",
 				},
+				Volumes: []string{
+					"/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt",
+				},
 				VolumesFrom: []string{
 					"all-volumes",
 				},
+			},
+			"userdockerwait": {
+				Labels: []string{
+					"io.rancher.os.detach=false",
+				},
+				Image: "userdockerwait",
+				Links: []string{
+					"userdocker",
+				},
+				//VolumesFrom: []string{
+				//	"all-volumes",
+				//},
 			},
 			"console": {
 				Image:      "console",
@@ -279,7 +294,7 @@ func NewConfig() *Config {
 			"ubuntu-console": {
 				SystemContainers: map[string]*project.ServiceConfig{
 					"console": {
-						Image:      "rancher/ubuntuconsole:" + VERSION,
+						Image:      "rancher/ubuntuconsole:" + IMAGE_VERSION,
 						Privileged: true,
 						Labels: []string{
 							DETACH + "=true",
