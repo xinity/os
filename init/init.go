@@ -3,6 +3,7 @@ package init
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"strings"
@@ -221,6 +222,21 @@ func sysInit(cfg *config.Config) error {
 }
 
 func execDocker(cfg *config.Config) error {
+	cmd := exec.Command(cfg.SystemDocker.Args[0], cfg.SystemDocker.Args[1:]...)
+	if cfg.Debug {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	} else {
+		output, err := os.Create("/var/log/system-docker.log")
+		if err != nil {
+			return err
+		}
+
+		cmd.Stdout = output
+		cmd.Stderr = output
+	}
+	return cmd.Run()
+
 	log.Info("Launching System Docker")
 	if !cfg.Debug {
 		output, err := os.Create("/var/log/system-docker.log")
@@ -272,6 +288,25 @@ func mountState(cfg *config.Config) error {
 	return err
 }
 
+func createGroups(cfg *config.Config) error {
+	return ioutil.WriteFile("/etc/group", []byte("root:x:0:\n"), 0644)
+}
+
+func touchSocket(cfg *config.Config) error {
+	for _, path := range []string{"/var/run/docker.sock", "/var/run/system-docker.sock"} {
+		if err := syscall.Unlink(path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		if l, err := net.Listen("unix", path); err != nil {
+			return err
+		} else {
+			l.Close()
+		}
+	}
+
+	return nil
+}
+
 func RunInit() error {
 	var cfg config.Config
 
@@ -308,6 +343,7 @@ func RunInit() error {
 		func(cfg *config.Config) error {
 			return createSymlinks(cfg, symlinks)
 		},
+		createGroups,
 		extractModules,
 		loadModules,
 		setResolvConf,
@@ -323,6 +359,7 @@ func RunInit() error {
 		func(cfg *config.Config) error {
 			return createMounts(postMounts...)
 		},
+		touchSocket,
 		remountRo,
 		sysInit,
 	}
