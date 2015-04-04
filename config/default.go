@@ -329,6 +329,26 @@ func NewConfig() *Config {
 					},
 				},
 			},
+			"flocker": {
+				SystemContainers: map[string]*project.ServiceConfig{
+					"userdocker": {
+						Image:      "test",
+						Privileged: true,
+						Pid:        "host",
+						Ipc:        "host",
+						Net:        "host",
+						Links: []string{
+							"network",
+						},
+						Volumes: []string{
+							"/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt",
+						},
+						VolumesFrom: []string{
+							"all-volumes",
+						},
+					},
+				},
+			},
 		},
 	}
 }
