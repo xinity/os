@@ -1,5 +1,21 @@
 rancher:
   bootstrap:
+    state-script:
+      image: rancher/os-statescript:v0.4.2-dev
+      labels:
+        io.rancher.os.detach: false
+        io.rancher.os.scope: system
+        io.rancher.os.after: udev-bootstrap
+      log_driver: json-file
+      net: host
+      uts: host
+      privileged: true
+      volumes:
+      - /dev:/host/dev
+      - /lib/modules:/lib/modules
+      - /lib/firmware:/lib/firmware
+      - /usr/bin/ros:/usr/bin/ros:ro
+      - /usr/share/ros:/usr/share/ros:ro
     udev-bootstrap:
       image: rancher/os-udev:v0.4.2-dev
       environment:
@@ -58,6 +74,8 @@ rancher:
   state:
     fstype: auto
     dev: LABEL=RANCHER_STATE
+    oem_fstype: auto
+    oem_dev: LABEL=RANCHER_OEM
   services:
     acpid:
       image: rancher/os-acpid:v0.4.2-dev
@@ -250,7 +268,7 @@ rancher:
       - /lib/firmware:/lib/firmware
       - /lib/modules:/lib/modules
       - /run:/run
-      - /usr/share/ros/os-config.yml:/usr/share/ros/os-config.yml
+      - /usr/share/ros:/usr/share/ros
       - /var/lib/rancher/conf:/var/lib/rancher/conf
       - /var/lib/rancher:/var/lib/rancher
       - /var/log:/var/log

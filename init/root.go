@@ -99,6 +99,11 @@ func copyMoveRoot(rootfs string, rmUsr bool) error {
 }
 
 func switchRoot(rootfs string, rmUsr bool) error {
+	log.Debugf("Umounting %s", config.OEM)
+	if err := syscall.Unmount(config.OEM, 0); err != nil {
+		log.Debugf("Not umounting OEM: %v", err)
+	}
+
 	for _, i := range []string{"/dev", "/sys", "/proc", "/run"} {
 		log.Debugf("Moving mount %s to %s", i, path.Join(rootfs, i))
 		if err := os.MkdirAll(path.Join(rootfs, i), 0755); err != nil {

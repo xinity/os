@@ -7,6 +7,7 @@ import (
 )
 
 const (
+	OEM                = "/usr/share/ros/oem"
 	DOCKER_BIN         = "/usr/bin/docker"
 	DOCKER_DIST_BIN    = "/usr/bin/docker.dist"
 	ROS_BIN            = "/usr/bin/ros"
@@ -39,7 +40,8 @@ const (
 )
 
 var (
-	VERSION string
+	OemConfigFile = OEM + "/oem-config.yml"
+	VERSION       string
 )
 
 func init() {
@@ -77,7 +79,6 @@ type RancherConfig struct {
 	Modules             []string                          `yaml:"modules,omitempty"`
 	Network             netconf.NetworkConfig             `yaml:"network,omitempty"`
 	Repositories        Repositories                      `yaml:"repositories,omitempty"`
-	Ssh                 SshConfig                         `yaml:"ssh,omitempty"`
 	State               StateConfig                       `yaml:"state,omitempty"`
 	SystemDocker        DockerConfig                      `yaml:"system_docker,omitempty"`
 	Upgrade             UpgradeConfig                     `yaml:"upgrade,omitempty"`
@@ -103,16 +104,15 @@ type DockerConfig struct {
 	StorageContext string   `yaml:"storage_context,omitempty"`
 }
 
-type SshConfig struct {
-	Keys map[string]string `yaml:"keys,omitempty"`
-}
-
 type StateConfig struct {
 	FsType     string   `yaml:"fstype,omitempty"`
 	Dev        string   `yaml:"dev,omitempty"`
 	Required   bool     `yaml:"required,omitempty"`
 	Autoformat []string `yaml:"autoformat,omitempty"`
 	FormatZero bool     `yaml:"formatzero,omitempty"`
+	Script     string   `yaml:"script,omitempty"`
+	OemFsType  string   `yaml:"oem_fstype,omitempty"`
+	OemDev     string   `yaml:"oem_dev,omitempty"`
 }
 
 type CloudInit struct {

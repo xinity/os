@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/rancher/docker-from-scratch"
+	dockerlaunch "github.com/rancher/docker-from-scratch"
 	"github.com/rancher/os/config"
 	"github.com/rancher/os/util"
 )
@@ -83,18 +85,17 @@ func MainInit() {
 	}
 }
 
-func mountState(cfg *config.CloudConfig) error {
+func mountConfigured(display, dev, fsType, target string) error {
 	var err error
 
-	if cfg.Rancher.State.Dev == "" {
+	if dev == "" {
 		return nil
 	}
 
-	dev := util.ResolveDevice(cfg.Rancher.State.Dev)
+	dev = util.ResolveDevice(dev)
 	if dev == "" {
-		return fmt.Errorf("Could not resolve device %q", cfg.Rancher.State.Dev)
+		return fmt.Errorf("Could not resolve device %q", dev)
 	}
-	fsType := cfg.Rancher.State.FsType
 	if fsType == "auto" {
 		fsType, err = util.GetFsType(dev)
 	}
@@ -104,8 +105,25 @@ func mountState(cfg *config.CloudConfig) error {
 	}
 
 	log.Debugf("FsType has been set to %s", fsType)
-	log.Infof("Mounting state device %s to %s", dev, STATE)
-	return util.Mount(dev, STATE, fsType, "")
+	log.Infof("Mounting %s device %s to %s", display, dev, target)
+	return util.Mount(dev, target, fsType, "")
+}
+
+func mountState(cfg *config.CloudConfig) error {
+	return mountConfigured("state", cfg.Rancher.State.Dev, cfg.Rancher.State.FsType, STATE)
+}
+
+func mountOem(cfg *config.CloudConfig) (*config.CloudConfig, error) {
+	if cfg == nil {
+		var err error
+		if cfg, err = config.LoadConfig(); err != nil {
+			return cfg, err
+		}
+	}
+	if err := mountConfigured("oem", cfg.Rancher.State.OemDev, cfg.Rancher.State.OemFsType, config.OEM); err != nil {
+		log.Infof("Not mounting OEM: %v", err)
+	}
+	return cfg, nil
 }
 
 func tryMountState(cfg *config.CloudConfig) error {
@@ -129,7 +147,10 @@ func tryMountAndBootstrap(cfg *config.CloudConfig) (*config.CloudConfig, error) 
 	}
 
 	log.Debugf("Switching to new root at %s", STATE)
-	return cfg, switchRoot(STATE, cfg.Rancher.RmUsr)
+	if err := switchRoot(STATE, cfg.Rancher.RmUsr); err != nil {
+		return cfg, err
+	}
+	return mountOem(cfg)
 }
 
 func getLaunchConfig(cfg *config.CloudConfig, dockerCfg *config.DockerConfig) (*dockerlaunch.Config, []string) {
@@ -149,6 +170,27 @@ func getLaunchConfig(cfg *config.CloudConfig, dockerCfg *config.DockerConfig) (*
 	return &launchConfig, args
 }
 
+func waitFor(cmd *exec.Cmd) error {
+	c := make(chan os.Signal)
+	signal.Notify(c, syscall.SIGCHLD)
+
+	var (
+		ws  syscall.WaitStatus
+		rus syscall.Rusage
+	)
+	for range c {
+		for {
+			if pid, err := syscall.Wait4(-1, &ws, syscall.WNOHANG, &rus); err != nil || pid <= 0 {
+				break
+			} else if pid == cmd.Process.Pid {
+				return nil
+			}
+		}
+	}
+
+	return nil
+}
+
 func RunInit() error {
 	os.Setenv("PATH", "/sbin:/usr/sbin:/usr/bin")
 	// Magic setting to tell Docker to do switch_root and not pivot_root
@@ -158,6 +200,7 @@ func RunInit() error {
 		func(c *config.CloudConfig) (*config.CloudConfig, error) {
 			return c, dockerlaunch.PrepareFs(&mountConfig)
 		},
+		mountOem,
 		func(_ *config.CloudConfig) (*config.CloudConfig, error) {
 			cfg, err := config.LoadConfig()
 			if err != nil {
@@ -190,8 +233,12 @@ func RunInit() error {
 	}
 
 	launchConfig, args := getLaunchConfig(cfg, &cfg.Rancher.SystemDocker)
+	launchConfig.Fork = true
 
 	log.Info("Launching System Docker")
-	_, err = dockerlaunch.LaunchDocker(launchConfig, config.DOCKER_BIN, args...)
-	return err
+	cmd, err := dockerlaunch.LaunchDocker(launchConfig, config.DOCKER_BIN, args...)
+	if err != nil {
+		return err
+	}
+	return waitFor(cmd)
 }

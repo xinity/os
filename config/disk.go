@@ -18,7 +18,7 @@ var osConfig *CloudConfig
 
 func NewConfig() *CloudConfig {
 	if osConfig == nil {
-		osConfig, _ = ReadConfig(nil, true, OsConfigFile)
+		osConfig, _ = ReadConfig(nil, true, OsConfigFile, OemConfigFile)
 	}
 	newCfg := *osConfig
 	return &newCfg
