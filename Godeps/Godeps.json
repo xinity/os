@@ -1,9 +1,6 @@
 {
 	"ImportPath": "github.com/rancher/os",
 	"GoVersion": "go1.4.1",
-	"Packages": [
-		"./..."
-	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
@@ -363,12 +360,12 @@
 		},
 		{
 			"ImportPath": "github.com/rancher/docker-from-scratch",
-			"Comment": "v1.9.1",
+			"Comment": "1.9.1",
 			"Rev": "b7bf6fe5ceafa78b02679ac0d00bf6a5ffbb6194"
 		},
 		{
 			"ImportPath": "github.com/rancher/netconf",
-			"Rev": "02925e7cf5a0f0bb0aa5360ee260ef7378e5eff8"
+			"Rev": "0e0b9cd78f27d75f5dc89ab7dfad00ec0fce3f68"
 		},
 		{
 			"ImportPath": "github.com/ryanuber/go-glob",
@@ -377,16 +374,6 @@
 		{
 			"ImportPath": "github.com/samalba/dockerclient",
 			"Rev": "16320a397fb98ba77c00283de77930e37b7a2153"
-		},
-		{
-			"ImportPath": "github.com/stretchr/testify/assert",
-			"Comment": "v1.0-17-g089c718",
-			"Rev": "089c7181b8c728499929ff09b62d3fdd8df8adff"
-		},
-		{
-			"ImportPath": "github.com/stretchr/testify/require",
-			"Comment": "v1.0-17-g089c718",
-			"Rev": "089c7181b8c728499929ff09b62d3fdd8df8adff"
 		},
 		{
 			"ImportPath": "github.com/vishvananda/netlink",

@@ -1,7 +1,6 @@
 package netconf
 
 type NetworkConfig struct {
-	Script     string                     `yaml:"script,omitempty"`
 	Dns        DnsConfig                  `yaml:"dns,omitempty"`
 	Interfaces map[string]InterfaceConfig `yaml:"interfaces,omitempty"`
 }
@@ -17,7 +16,6 @@ type InterfaceConfig struct {
 }
 
 type DnsConfig struct {
-	Override    bool     `yaml:"override"`
 	Nameservers []string `yaml:"nameservers,flow,omitempty"`
 	Search      []string `yaml:"search,flow,omitempty"`
 }
