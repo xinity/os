@@ -8,8 +8,8 @@ installer: minimal
 
 bin/rancheros:
 	mkdir -p $(dir $@)
-	go build -tags netgo -installsuffix netgo -ldflags "-X github.com/rancher/os/config.VERSION=$(VERSION) -linkmode external -extldflags -static" -o $@
-	strip --strip-all $@
+	CC=arm-linux-gnueabihf-gcc GOARCH=arm CGO_ENABLED=1 go build -tags netgo -installsuffix netgo -ldflags "-X github.com/rancher/os/config.VERSION=$(VERSION) -linkmode external -extldflags -static" -o $@
+	/usr/arm-linux-gnueabihf/bin/strip --strip-all $@
 
 
 pwd := $(shell pwd)
