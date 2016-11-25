@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -27,6 +26,10 @@ func GetServices(urls []string) ([]string, error) {
 
 func GetConsoles(urls []string) ([]string, error) {
 	return getServices(urls, "consoles")
+}
+
+func GetEngines(urls []string) ([]string, error) {
+	return getServices(urls, "engines")
 }
 
 func getServices(urls []string, key string) ([]string, error) {
@@ -87,7 +90,7 @@ func loadFromNetwork(location string) ([]byte, error) {
 
 	var err error
 	for i := 0; i < 300; i++ {
-		net.UpdateDnsConf()
+		updateDNSCache()
 
 		var resp *http.Response
 		resp, err = http.Get(location)

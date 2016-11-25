@@ -5,6 +5,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
+	"github.com/rancher/os/cmd/control/service"
 	"github.com/rancher/os/config"
 )
 
@@ -25,6 +26,13 @@ func Main() {
 
 	app.Commands = []cli.Command{
 		{
+			Name:            "bootstrap",
+			Hidden:          true,
+			HideHelp:        true,
+			SkipFlagParsing: true,
+			Action:          bootstrapAction,
+		},
+		{
 			Name:        "config",
 			ShortName:   "c",
 			Usage:       "configure settings",
@@ -33,27 +41,52 @@ func Main() {
 		},
 		{
 			Name:        "console",
-			Usage:       "console container commands",
+			Usage:       "manage which console container is used",
 			HideHelp:    true,
 			Subcommands: consoleSubcommands(),
 		},
 		{
+			Name:            "console-init",
+			Hidden:          true,
+			HideHelp:        true,
+			SkipFlagParsing: true,
+			Action:          consoleInitAction,
+		},
+		{
 			Name:            "dev",
-			ShortName:       "d",
-			Usage:           "dev spec",
+			Hidden:          true,
 			HideHelp:        true,
 			SkipFlagParsing: true,
 			Action:          devAction,
 		},
 		{
+			Name:            "docker-init",
+			Hidden:          true,
+			HideHelp:        true,
+			SkipFlagParsing: true,
+			Action:          dockerInitAction,
+		},
+		{
+			Name:        "engine",
+			Usage:       "manage which Docker engine is used",
+			HideHelp:    true,
+			Subcommands: engineSubcommands(),
+		},
+		{
+			Name:            "entrypoint",
+			Hidden:          true,
+			HideHelp:        true,
+			SkipFlagParsing: true,
+			Action:          entrypointAction,
+		},
+		{
 			Name:            "env",
-			ShortName:       "e",
-			Usage:           "env command",
+			Hidden:          true,
 			HideHelp:        true,
 			SkipFlagParsing: true,
 			Action:          envAction,
 		},
-		serviceCommand(),
+		service.Commands(),
 		{
 			Name:        "os",
 			Usage:       "operating system upgrade/downgrade",
@@ -61,10 +94,38 @@ func Main() {
 			Subcommands: osSubcommands(),
 		},
 		{
+			Name:            "preload-images",
+			Hidden:          true,
+			HideHelp:        true,
+			SkipFlagParsing: true,
+			Action:          preloadImagesAction,
+		},
+		{
+			Name:            "switch-console",
+			Hidden:          true,
+			HideHelp:        true,
+			SkipFlagParsing: true,
+			Action:          switchConsoleAction,
+		},
+		{
 			Name:        "tls",
 			Usage:       "setup tls configuration",
 			HideHelp:    true,
 			Subcommands: tlsConfCommands(),
+		},
+		{
+			Name:            "udev-settle",
+			Hidden:          true,
+			HideHelp:        true,
+			SkipFlagParsing: true,
+			Action:          udevSettleAction,
+		},
+		{
+			Name:            "user-docker",
+			Hidden:          true,
+			HideHelp:        true,
+			SkipFlagParsing: true,
+			Action:          userDockerAction,
 		},
 		installCommand,
 		selinuxCommand(),

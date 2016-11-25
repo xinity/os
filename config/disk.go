@@ -31,27 +31,32 @@ func ReadConfig(bytes []byte, substituteMetadataVars bool, files ...string) (*Cl
 	return c, nil
 }
 
-func loadRawDiskConfig(full bool) map[interface{}]interface{} {
+func loadRawDiskConfig(dirPrefix string, full bool) map[interface{}]interface{} {
 	var rawCfg map[interface{}]interface{}
 	if full {
 		rawCfg, _ = readConfigs(nil, true, false, OsConfigFile, OemConfigFile)
 	}
 
-	files := append(CloudConfigDirFiles(), CloudConfigFile)
+	files := CloudConfigDirFiles(dirPrefix)
+	files = append(files, path.Join(dirPrefix, CloudConfigFile))
 	additionalCfgs, _ := readConfigs(nil, true, false, files...)
 
 	return util.Merge(rawCfg, additionalCfgs)
 }
 
-func loadRawConfig() map[interface{}]interface{} {
-	rawCfg := loadRawDiskConfig(true)
+func loadRawConfig(dirPrefix string) map[interface{}]interface{} {
+	rawCfg := loadRawDiskConfig(dirPrefix, true)
 	rawCfg = util.Merge(rawCfg, readCmdline())
 	rawCfg = applyDebugFlags(rawCfg)
 	return mergeMetadata(rawCfg, readMetadata())
 }
 
 func LoadConfig() *CloudConfig {
-	rawCfg := loadRawConfig()
+	return LoadConfigWithPrefix("")
+}
+
+func LoadConfigWithPrefix(dirPrefix string) *CloudConfig {
+	rawCfg := loadRawConfig(dirPrefix)
 
 	cfg := &CloudConfig{}
 	if err := util.Convert(rawCfg, cfg); err != nil {
@@ -63,8 +68,10 @@ func LoadConfig() *CloudConfig {
 	return cfg
 }
 
-func CloudConfigDirFiles() []string {
-	files, err := ioutil.ReadDir(CloudConfigDir)
+func CloudConfigDirFiles(dirPrefix string) []string {
+	cloudConfigDir := path.Join(dirPrefix, CloudConfigDir)
+
+	files, err := ioutil.ReadDir(cloudConfigDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// do nothing
@@ -78,7 +85,7 @@ func CloudConfigDirFiles() []string {
 	var finalFiles []string
 	for _, file := range files {
 		if !file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
-			finalFiles = append(finalFiles, path.Join(CloudConfigDir, file.Name()))
+			finalFiles = append(finalFiles, path.Join(cloudConfigDir, file.Name()))
 		}
 	}
 
@@ -96,19 +103,9 @@ func applyDebugFlags(rawCfg map[interface{}]interface{}) map[interface{}]interfa
 	}
 
 	log.SetLevel(log.DebugLevel)
-	if !util.Contains(cfg.Rancher.Docker.Args, "-D") {
-		cfg.Rancher.Docker.Args = append(cfg.Rancher.Docker.Args, "-D")
-	}
-	if !util.Contains(cfg.Rancher.SystemDocker.Args, "-D") {
-		cfg.Rancher.SystemDocker.Args = append(cfg.Rancher.SystemDocker.Args, "-D")
-	}
-	if !util.Contains(cfg.Rancher.BootstrapDocker.Args, "-D") {
-		cfg.Rancher.BootstrapDocker.Args = append(cfg.Rancher.BootstrapDocker.Args, "-D")
-	}
-
-	_, rawCfg = getOrSetVal("rancher.docker.args", rawCfg, cfg.Rancher.Docker.Args)
-	_, rawCfg = getOrSetVal("rancher.system_docker.args", rawCfg, cfg.Rancher.SystemDocker.Args)
-	_, rawCfg = getOrSetVal("rancher.bootstrap_docker.args", rawCfg, cfg.Rancher.BootstrapDocker.Args)
+	_, rawCfg = getOrSetVal("rancher.docker.debug", rawCfg, true)
+	_, rawCfg = getOrSetVal("rancher.system_docker.debug", rawCfg, true)
+	_, rawCfg = getOrSetVal("rancher.bootstrap_docker.debug", rawCfg, true)
 	_, rawCfg = getOrSetVal("rancher.log", rawCfg, true)
 
 	return rawCfg
@@ -144,12 +141,7 @@ func mergeMetadata(rawCfg map[interface{}]interface{}, md datasource.Metadata) m
 
 	sort.Sort(sort.StringSlice(keys))
 
-	currentKeys, ok := out["ssh_authorized_keys"]
-	if !ok {
-		return out
-	}
-
-	finalKeys := currentKeys.([]interface{})
+	finalKeys, _ := out["ssh_authorized_keys"].([]interface{})
 	for _, k := range keys {
 		finalKeys = append(finalKeys, md.SSHPublicKeys[k])
 	}
@@ -181,7 +173,7 @@ func readCmdline() map[interface{}]interface{} {
 
 	log.Debugf("Config cmdline %s", cmdLine)
 
-	cmdLineObj := parseCmdline(strings.TrimSpace(string(cmdLine)))
+	cmdLineObj := parseCmdline(strings.TrimSpace(util.UnescapeKernelParams(string(cmdLine))))
 
 	return cmdLineObj
 }
@@ -190,9 +182,6 @@ func amendNils(c *CloudConfig) *CloudConfig {
 	t := *c
 	if t.Rancher.Environment == nil {
 		t.Rancher.Environment = map[string]string{}
-	}
-	if t.Rancher.Autoformat == nil {
-		t.Rancher.Autoformat = map[string]*composeConfig.ServiceConfigV1{}
 	}
 	if t.Rancher.BootstrapContainers == nil {
 		t.Rancher.BootstrapContainers = map[string]*composeConfig.ServiceConfigV1{}
@@ -214,7 +203,6 @@ func amendNils(c *CloudConfig) *CloudConfig {
 
 func amendContainerNames(c *CloudConfig) *CloudConfig {
 	for _, scm := range []map[string]*composeConfig.ServiceConfigV1{
-		c.Rancher.Autoformat,
 		c.Rancher.BootstrapContainers,
 		c.Rancher.Services,
 	} {

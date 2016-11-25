@@ -1,12 +1,13 @@
 package config
 
 import (
+	"fmt"
 	"runtime"
 
 	"github.com/coreos/coreos-cloudinit/config"
 	"github.com/docker/engine-api/types"
 	composeConfig "github.com/docker/libcompose/config"
-	"github.com/rancher/netconf"
+	"github.com/rancher/os/config/yaml"
 )
 
 const (
@@ -50,6 +51,8 @@ var (
 	VERSION       string
 	ARCH          string
 	SUFFIX        string
+	OS_REPO       string
+	OS_BASE       string
 	PrivateKeys   = []string{
 		"rancher.ssh",
 		"rancher.docker.ca_key",
@@ -69,6 +72,9 @@ func init() {
 	if SUFFIX == "" && ARCH != "amd64" {
 		SUFFIX = "_" + ARCH
 	}
+	if OS_BASE == "" {
+		OS_BASE = fmt.Sprintf("%s/os-base:%s%s", OS_REPO, VERSION, SUFFIX)
+	}
 }
 
 type Repository struct {
@@ -78,11 +84,18 @@ type Repository struct {
 type Repositories map[string]Repository
 
 type CloudConfig struct {
-	SSHAuthorizedKeys []string      `yaml:"ssh_authorized_keys"`
-	WriteFiles        []config.File `yaml:"write_files"`
-	Hostname          string        `yaml:"hostname"`
-	Mounts            [][]string    `yaml:"mounts,omitempty"`
-	Rancher           RancherConfig `yaml:"rancher,omitempty"`
+	SSHAuthorizedKeys []string              `yaml:"ssh_authorized_keys"`
+	WriteFiles        []File                `yaml:"write_files"`
+	Hostname          string                `yaml:"hostname"`
+	Mounts            [][]string            `yaml:"mounts,omitempty"`
+	Rancher           RancherConfig         `yaml:"rancher,omitempty"`
+	Runcmd            []yaml.StringandSlice `yaml:"runcmd,omitempty"`
+	Bootcmd           []yaml.StringandSlice `yaml:"bootcmd,omitempty"`
+}
+
+type File struct {
+	config.File
+	Container string `yaml:"container,omitempty"`
 }
 
 type RancherConfig struct {
@@ -90,7 +103,7 @@ type RancherConfig struct {
 	Environment         map[string]string                         `yaml:"environment,omitempty"`
 	Services            map[string]*composeConfig.ServiceConfigV1 `yaml:"services,omitempty"`
 	BootstrapContainers map[string]*composeConfig.ServiceConfigV1 `yaml:"bootstrap,omitempty"`
-	Autoformat          map[string]*composeConfig.ServiceConfigV1 `yaml:"autoformat,omitempty"`
+	CloudInitServices   map[string]*composeConfig.ServiceConfigV1 `yaml:"cloud_init_services,omitempty"`
 	BootstrapDocker     DockerConfig                              `yaml:"bootstrap_docker,omitempty"`
 	CloudInit           CloudInit                                 `yaml:"cloud_init,omitempty"`
 	Debug               bool                                      `yaml:"debug,omitempty"`
@@ -101,8 +114,8 @@ type RancherConfig struct {
 	Disable             []string                                  `yaml:"disable,omitempty"`
 	ServicesInclude     map[string]bool                           `yaml:"services_include,omitempty"`
 	Modules             []string                                  `yaml:"modules,omitempty"`
-	Network             netconf.NetworkConfig                     `yaml:"network,omitempty"`
-	DefaultNetwork      netconf.NetworkConfig                     `yaml:"default_network,omitempty"`
+	Network             NetworkConfig                             `yaml:"network,omitempty"`
+	DefaultNetwork      NetworkConfig                             `yaml:"default_network,omitempty"`
 	Repositories        Repositories                              `yaml:"repositories,omitempty"`
 	Ssh                 SshConfig                                 `yaml:"ssh,omitempty"`
 	State               StateConfig                               `yaml:"state,omitempty"`
@@ -113,6 +126,7 @@ type RancherConfig struct {
 	Defaults            Defaults                                  `yaml:"defaults,omitempty"`
 	ResizeDevice        string                                    `yaml:"resize_device,omitempty"`
 	Sysctl              map[string]string                         `yaml:"sysctl,omitempty"`
+	RestartServices     []string                                  `yaml:"restart_services,omitempty"`
 }
 
 type UpgradeConfig struct {
@@ -121,10 +135,32 @@ type UpgradeConfig struct {
 	Rollback string `yaml:"rollback,omitempty"`
 }
 
+type EngineOpts struct {
+	Bridge           string            `yaml:"bridge,omitempty" opt:"bridge"`
+	ConfigFile       string            `yaml:"config_file,omitempty" opt:"config-file"`
+	Containerd       string            `yaml:"containerd,omitempty" opt:"containerd"`
+	Debug            *bool             `yaml:"debug,omitempty" opt:"debug"`
+	ExecRoot         string            `yaml:"exec_root,omitempty" opt:"exec-root"`
+	Group            string            `yaml:"group,omitempty" opt:"group"`
+	Graph            string            `yaml:"graph,omitempty" opt:"graph"`
+	Host             []string          `yaml:"host,omitempty" opt:"host"`
+	InsecureRegistry []string          `yaml:"insecure_registry" opt:"insecure-registry"`
+	LiveRestore      *bool             `yaml:"live_restore,omitempty" opt:"live-restore"`
+	LogDriver        string            `yaml:"log_driver,omitempty" opt:"log-driver"`
+	LogOpts          map[string]string `yaml:"log_opts,omitempty" opt:"log-opt"`
+	PidFile          string            `yaml:"pid_file,omitempty" opt:"pidfile"`
+	RegistryMirror   string            `yaml:"registry_mirror,omitempty" opt:"registry-mirror"`
+	Restart          *bool             `yaml:"restart,omitempty" opt:"restart"`
+	SelinuxEnabled   *bool             `yaml:"selinux_enabled,omitempty" opt:"selinux-enabled"`
+	StorageDriver    string            `yaml:"storage_driver,omitempty" opt:"storage-driver"`
+	UserlandProxy    *bool             `yaml:"userland_proxy,omitempty" opt:"userland-proxy"`
+}
+
 type DockerConfig struct {
+	EngineOpts
+	Engine         string   `yaml:"engine,omitempty"`
 	TLS            bool     `yaml:"tls,omitempty"`
 	TLSArgs        []string `yaml:"tls_args,flow,omitempty"`
-	Args           []string `yaml:"args,flow,omitempty"`
 	ExtraArgs      []string `yaml:"extra_args,flow,omitempty"`
 	ServerCert     string   `yaml:"server_cert,omitempty"`
 	ServerKey      string   `yaml:"server_key,omitempty"`
@@ -135,6 +171,39 @@ type DockerConfig struct {
 	Exec           bool     `yaml:"exec,omitempty"`
 }
 
+type NetworkConfig struct {
+	PreCmds    []string                   `yaml:"pre_cmds,omitempty"`
+	Dns        DnsConfig                  `yaml:"dns,omitempty"`
+	Interfaces map[string]InterfaceConfig `yaml:"interfaces,omitempty"`
+	PostCmds   []string                   `yaml:"post_cmds,omitempty"`
+	HttpProxy  string                     `yaml:"http_proxy,omitempty"`
+	HttpsProxy string                     `yaml:"https_proxy,omitempty"`
+	NoProxy    string                     `yaml:"no_proxy,omitempty"`
+}
+
+type InterfaceConfig struct {
+	Match       string            `yaml:"match,omitempty"`
+	DHCP        bool              `yaml:"dhcp,omitempty"`
+	DHCPArgs    string            `yaml:"dhcp_args,omitempty"`
+	Address     string            `yaml:"address,omitempty"`
+	Addresses   []string          `yaml:"addresses,omitempty"`
+	IPV4LL      bool              `yaml:"ipv4ll,omitempty"`
+	Gateway     string            `yaml:"gateway,omitempty"`
+	GatewayIpv6 string            `yaml:"gateway_ipv6,omitempty"`
+	MTU         int               `yaml:"mtu,omitempty"`
+	Bridge      string            `yaml:"bridge,omitempty"`
+	Bond        string            `yaml:"bond,omitempty"`
+	BondOpts    map[string]string `yaml:"bond_opts,omitempty"`
+	PostUp      []string          `yaml:"post_up,omitempty"`
+	PreUp       []string          `yaml:"pre_up,omitempty"`
+	Vlans       string            `yaml:"vlans,omitempty"`
+}
+
+type DnsConfig struct {
+	Nameservers []string `yaml:"nameservers,flow,omitempty"`
+	Search      []string `yaml:"search,flow,omitempty"`
+}
+
 type SshConfig struct {
 	Keys map[string]string `yaml:"keys,omitempty"`
 }
@@ -143,9 +212,9 @@ type StateConfig struct {
 	Directory  string   `yaml:"directory,omitempty"`
 	FsType     string   `yaml:"fstype,omitempty"`
 	Dev        string   `yaml:"dev,omitempty"`
+	Wait       bool     `yaml:"wait,omitempty"`
 	Required   bool     `yaml:"required,omitempty"`
 	Autoformat []string `yaml:"autoformat,omitempty"`
-	FormatZero bool     `yaml:"formatzero,omitempty"`
 	MdadmScan  bool     `yaml:"mdadm_scan,omitempty"`
 	Script     string   `yaml:"script,omitempty"`
 	OemFsType  string   `yaml:"oem_fstype,omitempty"`
@@ -157,8 +226,9 @@ type CloudInit struct {
 }
 
 type Defaults struct {
-	Hostname string                `yaml:"hostname,omitempty"`
-	Network  netconf.NetworkConfig `yaml:"network,omitempty"`
+	Hostname string        `yaml:"hostname,omitempty"`
+	Docker   DockerConfig  `yaml:"docker,omitempty"`
+	Network  NetworkConfig `yaml:"network,omitempty"`
 }
 
 func (r Repositories) ToArray() []string {

@@ -1,9 +1,10 @@
 package control
 
 import (
-	"bufio"
 	"fmt"
-	"os"
+	"io/ioutil"
+	"sort"
+	"strings"
 
 	"golang.org/x/net/context"
 
@@ -27,6 +28,10 @@ func consoleSubcommands() []cli.Command {
 					Name:  "force, f",
 					Usage: "do not prompt for input",
 				},
+				cli.BoolFlag{
+					Name:  "no-pull",
+					Usage: "don't pull console image",
+				},
 			},
 		},
 		{
@@ -49,20 +54,21 @@ func consoleSwitch(c *cli.Context) error {
 	newConsole := c.Args()[0]
 
 	cfg := config.LoadConfig()
-	if newConsole == cfg.Rancher.Console {
+	if newConsole == currentConsole() {
 		log.Warnf("Console is already set to %s", newConsole)
 	}
 
 	if !c.Bool("force") {
-		in := bufio.NewReader(os.Stdin)
-		fmt.Println("Switching consoles will destroy the current console container and restart Docker.")
-		fmt.Println("Note: You will also be logged out.")
-		if !yes(in, "Continue") {
+		fmt.Println(`Switching consoles will
+1. destroy the current console container
+2. log you out
+3. restart Docker`)
+		if !yes("Continue") {
 			return nil
 		}
 	}
 
-	if newConsole != "default" {
+	if !c.Bool("no-pull") && newConsole != "default" {
 		if err := compose.StageServices(cfg, newConsole); err != nil {
 			return err
 		}
@@ -73,11 +79,11 @@ func consoleSwitch(c *cli.Context) error {
 		Privileged: true,
 		Net:        "host",
 		Pid:        "host",
-		Image:      fmt.Sprintf("rancher/os-base:%s", config.VERSION),
+		Image:      config.OS_BASE,
 		Labels: map[string]string{
 			config.SCOPE: config.SYSTEM,
 		},
-		Command:     []string{"/usr/bin/switch-console", newConsole},
+		Command:     []string{"/usr/bin/ros", "switch-console", newConsole},
 		VolumesFrom: []string{"all-volumes"},
 	})
 	if err != nil {
@@ -121,11 +127,30 @@ func consoleList(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	consoles = append(consoles, "default")
+	sort.Strings(consoles)
 
-	fmt.Println("default")
+	currentConsole := currentConsole()
+
 	for _, console := range consoles {
-		fmt.Println(console)
+		if console == currentConsole {
+			fmt.Printf("current  %s\n", console)
+		} else if console == cfg.Rancher.Console {
+			fmt.Printf("enabled  %s\n", console)
+		} else {
+			fmt.Printf("disabled %s\n", console)
+		}
 	}
 
 	return nil
+}
+
+func currentConsole() (console string) {
+	consoleBytes, err := ioutil.ReadFile("/run/console-done")
+	if err == nil {
+		console = strings.TrimSpace(string(consoleBytes))
+	} else {
+		log.Warnf("Failed to detect current console: %v", err)
+	}
+	return
 }

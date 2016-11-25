@@ -3,32 +3,25 @@ package init
 import (
 	"syscall"
 
-	"fmt"
-	"strings"
-
 	log "github.com/Sirupsen/logrus"
-	"github.com/rancher/docker-from-scratch"
 	"github.com/rancher/os/compose"
 	"github.com/rancher/os/config"
+	"github.com/rancher/os/dfs"
 	"github.com/rancher/os/util"
 )
 
-func autoformat(cfg *config.CloudConfig) (*config.CloudConfig, error) {
-	if len(cfg.Rancher.State.Autoformat) == 0 || util.ResolveDevice(cfg.Rancher.State.Dev) != "" {
+func bootstrapServices(cfg *config.CloudConfig) (*config.CloudConfig, error) {
+	if (len(cfg.Rancher.State.Autoformat) == 0 || util.ResolveDevice(cfg.Rancher.State.Dev) != "") && len(cfg.Bootcmd) == 0 {
 		return cfg, nil
 	}
-	AUTOFORMAT := "AUTOFORMAT=" + strings.Join(cfg.Rancher.State.Autoformat, " ")
-	FORMATZERO := "FORMATZERO=" + fmt.Sprint(cfg.Rancher.State.FormatZero)
-	t := *cfg
-	t.Rancher.Autoformat["autoformat"].Environment = []string{AUTOFORMAT, FORMATZERO}
-	log.Info("Running Autoformat services")
-	_, err := compose.RunServiceSet("autoformat", &t, t.Rancher.Autoformat)
-	return &t, err
+	log.Info("Running Bootstrap")
+	_, err := compose.RunServiceSet("bootstrap", cfg, cfg.Rancher.BootstrapContainers)
+	return cfg, err
 }
 
-func runBootstrapContainers(cfg *config.CloudConfig) (*config.CloudConfig, error) {
-	log.Info("Running Bootstrap services")
-	_, err := compose.RunServiceSet("bootstrap", cfg, cfg.Rancher.BootstrapContainers)
+func runCloudInitServiceSet(cfg *config.CloudConfig) (*config.CloudConfig, error) {
+	log.Info("Running cloud-init services")
+	_, err := compose.RunServiceSet("cloud-init", cfg, cfg.Rancher.CloudInitServices)
 	return cfg, err
 }
 
@@ -38,7 +31,7 @@ func startDocker(cfg *config.CloudConfig) (chan interface{}, error) {
 	launchConfig.LogFile = ""
 	launchConfig.NoLog = true
 
-	cmd, err := dockerlaunch.LaunchDocker(launchConfig, config.SYSTEM_DOCKER_BIN, args...)
+	cmd, err := dfs.LaunchDocker(launchConfig, config.SYSTEM_DOCKER_BIN, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +65,20 @@ func bootstrap(cfg *config.CloudConfig) error {
 
 	_, err = config.ChainCfgFuncs(cfg,
 		loadImages,
-		runBootstrapContainers,
-		autoformat)
+		bootstrapServices)
+	return err
+}
+
+func runCloudInitServices(cfg *config.CloudConfig) error {
+	c, err := startDocker(cfg)
+	if err != nil {
+		return err
+	}
+
+	defer stopDocker(c)
+
+	_, err = config.ChainCfgFuncs(cfg,
+		loadImages,
+		runCloudInitServiceSet)
 	return err
 }

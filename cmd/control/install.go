@@ -1,10 +1,10 @@
 package control
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -21,8 +21,10 @@ var installCommand = cli.Command{
 	Action:   installAction,
 	Flags: []cli.Flag{
 		cli.StringFlag{
-			Name:  "image, i",
-			Usage: "install from a certain image",
+			// TODO: need to validate ? -i rancher/os:v0.3.1 just sat there.
+			Name: "image, i",
+			Usage: `install from a certain image (e.g., 'rancher/os:v0.7.0')
+							use 'ros os list' to see what versions are available.`,
 		},
 		cli.StringFlag{
 			Name: "install-type, t",
@@ -44,6 +46,10 @@ var installCommand = cli.Command{
 		cli.BoolFlag{
 			Name:  "no-reboot",
 			Usage: "do not reboot after install",
+		},
+		cli.StringFlag{
+			Name:  "append, a",
+			Usage: "append additional kernel parameters",
 		},
 	},
 }
@@ -80,23 +86,22 @@ func installAction(c *cli.Context) error {
 		cloudConfig = uc
 	}
 
+	append := strings.TrimSpace(c.String("append"))
 	force := c.Bool("force")
 	reboot := !c.Bool("no-reboot")
 
-	if err := runInstall(image, installType, cloudConfig, device, force, reboot); err != nil {
+	if err := runInstall(image, installType, cloudConfig, device, append, force, reboot); err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to run install")
 	}
 
 	return nil
 }
 
-func runInstall(image, installType, cloudConfig, device string, force, reboot bool) error {
-	in := bufio.NewReader(os.Stdin)
-
+func runInstall(image, installType, cloudConfig, device, append string, force, reboot bool) error {
 	fmt.Printf("Installing from %s\n", image)
 
 	if !force {
-		if !yes(in, "Continue") {
+		if !yes("Continue") {
 			os.Exit(1)
 		}
 	}
@@ -109,14 +114,14 @@ func runInstall(image, installType, cloudConfig, device string, force, reboot bo
 			return err
 		}
 	}
-	cmd := exec.Command("system-docker", "run", "--net=host", "--privileged", "--volumes-from=user-volumes", image,
-		"-d", device, "-t", installType, "-c", cloudConfig)
+	cmd := exec.Command("system-docker", "run", "--net=host", "--privileged", "--volumes-from=user-volumes",
+		"--volumes-from=command-volumes", image, "-d", device, "-t", installType, "-c", cloudConfig, "-a", append)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		return err
 	}
 
-	if reboot && yes(in, "Continue with reboot") {
+	if reboot && (force || yes("Continue with reboot")) {
 		log.Info("Rebooting")
 		power.Reboot()
 	}

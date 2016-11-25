@@ -32,7 +32,9 @@ RUN rm /sbin/poweroff /sbin/reboot /sbin/halt && \
     adduser docker sudo && \
     echo '%sudo ALL=(ALL) ALL' >> /etc/sudoers
 COPY inputrc /etc/inputrc
-COPY entry.sh /usr/sbin/entry.sh
 COPY growpart /usr/bin/growpart
+RUN sed -i s/"partx --update \"\$part\" \"\$dev\""/"partx --update --nr \"\$part\" \"\$dev\""/g /usr/bin/growpart && \
+    sed -i -e 's/duid/clientid/g' /etc/dhcpcd.conf && \
+    sed -i 1,10d /etc/rsyslog.conf
 
-ENTRYPOINT ["/usr/sbin/entry.sh"]
+ENTRYPOINT ["/usr/bin/ros", "entrypoint"]

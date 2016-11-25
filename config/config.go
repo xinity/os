@@ -18,7 +18,7 @@ func Merge(bytes []byte) error {
 }
 
 func Export(private, full bool) (string, error) {
-	rawCfg := loadRawDiskConfig(full)
+	rawCfg := loadRawDiskConfig("", full)
 	if !private {
 		rawCfg = filterPrivateKeys(rawCfg)
 	}
@@ -37,6 +37,12 @@ func Get(key string) (interface{}, error) {
 
 	v, _ := getOrSetVal(key, data, nil)
 	return v, nil
+}
+
+func GetCmdline(key string) interface{} {
+	cmdline := readCmdline()
+	v, _ := getOrSetVal(key, cmdline, nil)
+	return v
 }
 
 func Set(key string, value interface{}) error {

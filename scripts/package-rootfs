@@ -16,18 +16,39 @@ INITRD=${ARTIFACTS}/initrd
 mkdir -p ${ARTIFACTS} ${PREPOP_DIR}
 
 if [ "$(docker info | grep 'Storage Driver: ' | sed 's/Storage Driver: //')" != "overlay" ]; then
-    echo Overlay storage driver is require do create rootfs.tar 1>&2
-    exit 1
+    echo Overlay storage driver is require to prepackage exploded images
+    echo packaging images.tar instead
+    tar czf ${ARTIFACTS}/rootfs${SUFFIX}.tar.gz --exclude lib/modules --exclude lib/firmware -C ${INITRD_DIR} .
+    exit 0
 fi
+
+mkdir -p ${INITRD_DIR}/usr/share/rancher/
+cat <<HERE > ${INITRD_DIR}/usr/share/rancher/os-release
+NAME="RancherOS"
+VERSION=${VERSION}
+ID=rancheros
+ID_LIKE=
+VERSION_ID=${VERSION}
+PRETTY_NAME="RancherOS ${VERSION}"
+HOME_URL="http://rancher.com/rancher-os/"
+SUPPORT_URL="https://forums.rancher.com/c/rancher-os"
+BUG_REPORT_URL="https://github.com/rancher/os/issues"
+BUILD_ID=
+HERE
+
+# need to make relative links to the os-release file
+cd ${INITRD_DIR}/usr/lib
+ln -s ../share/rancher/os-release os-release
+cd $(dirname $0)/..
 
 DFS=$(docker run -d --privileged -v /lib/modules/$(uname -r):/lib/modules/$(uname -r) ${DFS_IMAGE}${SUFFIX} ${DFS_ARGS})
 trap "docker rm -fv ${DFS_ARCH} ${DFS}" EXIT
 docker exec -i ${DFS} docker load < ${INITRD_DIR}/usr/share/ros/images.tar
 docker stop ${DFS}
-docker run --rm --volumes-from=${DFS} rancher/os-base tar -c -C /var/lib/docker ./image | tar -x -C ${PREPOP_DIR}
-docker run --rm --volumes-from=${DFS} rancher/os-base tar -c -C /var/lib/docker ./overlay | tar -x -C ${PREPOP_DIR}
+docker run --rm --volumes-from=${DFS} --entrypoint /bin/bash rancher/os-base -c "tar -c -C /var/lib/docker ./image" | tar -x -C ${PREPOP_DIR}
+docker run --rm --volumes-from=${DFS} --entrypoint /bin/bash rancher/os-base -c "tar -c -C /var/lib/docker ./overlay" | tar -x -C ${PREPOP_DIR}
 
-tar -cf ${ARTIFACTS}/rootfs.tar  --exclude lib/modules --exclude lib/firmware -C ${INITRD_DIR} .
-tar -rf ${ARTIFACTS}/rootfs.tar  --exclude lib/modules --exclude lib/firmware -C ${INITRD_DIR} .
-rm -f ${ARTIFACTS}/rootfs.tar.gz
-gzip ${ARTIFACTS}/rootfs.tar
+tar -cf ${ARTIFACTS}/rootfs${SUFFIX}.tar --exclude usr/share/ros/images.tar  --exclude lib/modules --exclude lib/firmware -C ${INITRD_DIR} .
+tar -rf ${ARTIFACTS}/rootfs${SUFFIX}.tar -C ${IMAGE_CACHE} .
+rm -f ${ARTIFACTS}/rootfs${SUFFIX}.tar.gz
+gzip ${ARTIFACTS}/rootfs${SUFFIX}.tar
